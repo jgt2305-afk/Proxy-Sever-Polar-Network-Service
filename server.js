@@ -8,46 +8,26 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 
-// Log the public directory path for debugging
-const publicPath = path.join(__dirname, 'public');
-console.log('📁 Looking for public folder at:', publicPath);
+// Serve static files from root directory
+app.use(express.static(__dirname));
 
-// Check if public folder exists
-if (fs.existsSync(publicPath)) {
-  console.log('✅ Public folder found!');
-  
-  // Check for index.html
-  const indexPath = path.join(publicPath, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    console.log('✅ index.html found!');
-  } else {
-    console.log('❌ index.html NOT found at:', indexPath);
-  }
-  
-  // List all files in public folder
-  const files = fs.readdirSync(publicPath);
-  console.log('📄 Files in public folder:', files);
-} else {
-  console.log('❌ Public folder NOT found at:', publicPath);
-  console.log('📂 Current directory:', __dirname);
-  console.log('📂 Files in current directory:', fs.readdirSync(__dirname));
-}
-
-// Serve static files from public directory
-app.use(express.static(publicPath));
+// Log what we're serving
+console.log('📁 Serving files from:', __dirname);
+console.log('📂 Files in root:', fs.readdirSync(__dirname).filter(f => !f.startsWith('.')));
 
 // Serve main page
 app.get('/', (req, res) => {
-  const indexPath = path.join(publicPath, 'index.html');
+  const indexPath = path.join(__dirname, 'index.html');
   
   if (fs.existsSync(indexPath)) {
+    console.log('✅ Serving index.html from:', indexPath);
     res.sendFile(indexPath);
   } else {
+    console.log('❌ index.html not found at:', indexPath);
     res.status(404).send(`
       <h1>❌ Error: index.html not found</h1>
       <p>Looking at: ${indexPath}</p>
-      <p>Public folder: ${publicPath}</p>
-      <p>Files in public: ${fs.existsSync(publicPath) ? fs.readdirSync(publicPath).join(', ') : 'Folder does not exist'}</p>
+      <p>Files in directory: ${fs.readdirSync(__dirname).join(', ')}</p>
     `);
   }
 });
@@ -57,13 +37,13 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    publicPath: publicPath,
-    publicExists: fs.existsSync(publicPath),
-    indexExists: fs.existsSync(path.join(publicPath, 'index.html'))
+    rootPath: __dirname,
+    indexExists: fs.existsSync(path.join(__dirname, 'index.html')),
+    files: fs.readdirSync(__dirname).filter(f => !f.startsWith('.'))
   });
 });
 
-// Simple proxy endpoint (for future enhancement)
+// Simple proxy endpoint
 app.get('/proxy', (req, res) => {
   const url = req.query.url;
   if (url) {
