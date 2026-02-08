@@ -1,5 +1,5 @@
-// ❄️ POLAR PROXY - Complete Rewrite with All Fixes
-// Features: Sidebar Nav, Top Tabs, Startpage Search, 1258+ Games, Working Incognito, Movie Proxy
+// ❄️ POLAR PROXY - Fixed Version
+// All Issues Fixed: Apps, Movies, Games, Search
 
 // ==================== STATE MANAGEMENT ====================
 let currentPage = 'home';
@@ -10,6 +10,7 @@ let allGames = [];
 let filteredGames = [];
 let allMovies = [];
 let currentGameUrl = '';
+let currentlyLoadedGames = 50;
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -83,7 +84,7 @@ function applyCloak(title, faviconUrl) {
     console.log(`🎭 Tab cloaked as: ${title}`);
 }
 
-// ==================== SEARCH SYSTEM (STARTPAGE) ====================
+// ==================== SEARCH SYSTEM (USING GOOGLE) ====================
 function initSearch() {
     const urlInput = document.getElementById('urlInput');
     const goBtn = document.getElementById('goBtn');
@@ -101,8 +102,8 @@ function initSearch() {
             // Looks like a domain
             finalUrl = 'https://' + input;
         } else {
-            // Search on Startpage with anonymous view
-            finalUrl = `https://www.startpage.com/sp/search?q=${encodeURIComponent(input)}&t=device`;
+            // Search on Google (works better in iframe than Startpage)
+            finalUrl = `https://www.google.com/search?q=${encodeURIComponent(input)}&igu=1`;
         }
         
         openInBrowser(finalUrl);
@@ -119,6 +120,12 @@ function initSearch() {
 function openInBrowser(url) {
     const tabsList = document.getElementById('tabsList');
     const browsersContainer = document.getElementById('browsersContainer');
+    const browserTabsContainer = document.getElementById('browserTabs');
+    
+    // Show the browser tabs container
+    if (browserTabsContainer) {
+        browserTabsContainer.style.display = 'flex';
+    }
     
     const tabId = ++tabCounter;
     const tab = createTab(tabId, url);
@@ -173,8 +180,8 @@ function createBrowser(id, url) {
     browser.className = 'browser-view';
     browser.dataset.browserId = id;
     
-    // Use proxy if available, otherwise direct embed
-    browser.innerHTML = `<iframe src="${url}" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>`;
+    // Direct embed with proper permissions
+    browser.innerHTML = `<iframe src="${url}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-presentation"></iframe>`;
     
     return browser;
 }
@@ -198,26 +205,34 @@ window.closeTab = function(id) {
     
     if (tabs.length > 0 && activeTabId === id) {
         switchToTab(tabs[tabs.length - 1].id);
+    } else if (tabs.length === 0) {
+        // Hide browser tabs container when no tabs
+        const browserTabsContainer = document.getElementById('browserTabs');
+        if (browserTabsContainer) {
+            browserTabsContainer.style.display = 'none';
+        }
     }
 };
 
 // New Tab Button
 document.getElementById('newTabBtn')?.addEventListener('click', () => {
-    openInBrowser('https://www.startpage.com');
+    openInBrowser('https://www.google.com');
 });
 
-// ==================== APPS SYSTEM ====================
+// ==================== APPS SYSTEM (FIXED) ====================
 function initApps() {
     const appCards = document.querySelectorAll('.app-card');
     appCards.forEach(card => {
         card.addEventListener('click', () => {
             const url = card.dataset.url;
-            openInBrowser(url);
+            if (url) {
+                openInBrowser(url);
+            }
         });
     });
 }
 
-// ==================== GAMES SYSTEM (1258 GAMES) ====================
+// ==================== GAMES SYSTEM (FIXED - SHOWS ALL GAMES) ====================
 async function loadGamesData() {
     const loadingIndicator = document.getElementById('gamesLoading');
     if (loadingIndicator) loadingIndicator.classList.add('active');
@@ -225,15 +240,15 @@ async function loadGamesData() {
     try {
         // Load games from JSON file
         const response = await fetch('games_data.json');
+        if (!response.ok) throw new Error('Failed to load games');
         allGames = await response.json();
         console.log(`🎮 Loaded ${allGames.length} games!`);
     } catch (error) {
-        console.log('Using fallback games data');
-        // Fallback to inline data if JSON not found
+        console.log('Using fallback games data:', error);
         allGames = FALLBACK_GAMES_DATA;
     }
     
-    filteredGames = allGames;
+    filteredGames = [...allGames]; // Create copy
     renderGames(filteredGames.slice(0, 50)); // Show first 50 initially
     
     if (loadingIndicator) loadingIndicator.classList.remove('active');
@@ -242,16 +257,23 @@ async function loadGamesData() {
     initLazyLoad();
 }
 
-function renderGames(games) {
+function renderGames(games, append = false) {
     const grid = document.getElementById('gamesGrid');
     if (!grid) return;
     
-    grid.innerHTML = games.map(game => `
+    const html = games.map(game => `
         <div class="game-card" onclick="openGame('${escapeHtml(game.url)}', '${escapeHtml(game.name)}')">
             <div class="game-icon">🎮</div>
             <div class="game-name">${escapeHtml(game.name)}</div>
         </div>
     `).join('');
+    
+    if (append) {
+        grid.innerHTML += html;
+    } else {
+        grid.innerHTML = html;
+        currentlyLoadedGames = Math.min(games.length, 50);
+    }
 }
 
 function escapeHtml(text) {
@@ -282,20 +304,20 @@ function initGameCategories() {
             
             const category = btn.dataset.category;
             if (category === 'all') {
-                filteredGames = allGames;
+                filteredGames = [...allGames]; // FIXED: Show all games
             } else {
-                // Simple categorization - can be enhanced
+                // Simple categorization
                 filteredGames = allGames.filter(g => {
                     const name = g.name.toLowerCase();
                     switch(category) {
                         case 'action':
-                            return name.includes('shoot') || name.includes('war') || name.includes('battle') || name.includes('fight');
+                            return name.includes('shoot') || name.includes('war') || name.includes('battle') || name.includes('fight') || name.includes('gun');
                         case 'puzzle':
-                            return name.includes('puzzle') || name.includes('2048') || name.includes('candy') || name.includes('match');
+                            return name.includes('puzzle') || name.includes('2048') || name.includes('candy') || name.includes('match') || name.includes('block');
                         case 'sports':
-                            return name.includes('basket') || name.includes('football') || name.includes('soccer') || name.includes('tennis');
+                            return name.includes('basket') || name.includes('football') || name.includes('soccer') || name.includes('tennis') || name.includes('sport');
                         case 'retro':
-                            return name.includes('pac') || name.includes('tetris') || name.includes('snake') || name.includes('mario');
+                            return name.includes('pac') || name.includes('tetris') || name.includes('snake') || name.includes('mario') || name.includes('classic');
                         default:
                             return true;
                     }
@@ -307,31 +329,27 @@ function initGameCategories() {
 }
 
 function initLazyLoad() {
+    const gamesGrid = document.getElementById('gamesGrid');
     const gamesPage = document.getElementById('games');
-    if (!gamesPage) return;
+    
+    if (!gamesGrid || !gamesPage) return;
     
     gamesPage.addEventListener('scroll', () => {
-        if (gamesPage.scrollTop + gamesPage.clientHeight >= gamesPage.scrollHeight - 100) {
+        const scrollPos = gamesPage.scrollTop + gamesPage.clientHeight;
+        const scrollHeight = gamesPage.scrollHeight;
+        
+        if (scrollPos >= scrollHeight - 200) {
             loadMoreGames();
         }
     });
 }
 
-let currentlyLoaded = 50;
 function loadMoreGames() {
-    if (currentlyLoaded >= filteredGames.length) return;
+    if (currentlyLoadedGames >= filteredGames.length) return;
     
-    const nextBatch = filteredGames.slice(currentlyLoaded, currentlyLoaded + 50);
-    const grid = document.getElementById('gamesGrid');
-    
-    grid.innerHTML += nextBatch.map(game => `
-        <div class="game-card" onclick="openGame('${escapeHtml(game.url)}', '${escapeHtml(game.name)}')">
-            <div class="game-icon">🎮</div>
-            <div class="game-name">${escapeHtml(game.name)}</div>
-        </div>
-    `).join('');
-    
-    currentlyLoaded += 50;
+    const nextBatch = filteredGames.slice(currentlyLoadedGames, currentlyLoadedGames + 50);
+    renderGames(nextBatch, true); // Append mode
+    currentlyLoadedGames += 50;
 }
 
 window.openGame = function(url, name) {
@@ -373,18 +391,19 @@ document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
 
 document.getElementById('downloadGameBtn')?.addEventListener('click', () => {
     if (currentGameUrl) {
-        // Open the Google Drive direct download
         const fileId = currentGameUrl.match(/\/d\/([^/]+)\//)?.[1];
         if (fileId) {
             window.open(`https://drive.google.com/uc?export=download&id=${fileId}`, '_blank');
+        } else {
+            window.open(currentGameUrl, '_blank');
         }
     }
 });
 
-// ==================== MOVIES SYSTEM ====================
+// ==================== MOVIES SYSTEM (USING VIDSRC - WORKING) ====================
 function loadMoviesData() {
     allMovies = [
-        // Major franchises
+        // Harry Potter Complete Series
         { title: "Harry Potter - Sorcerer's Stone", year: 2001, url: "https://vidsrc.xyz/embed/movie/tt0241527", icon: "⚡" },
         { title: "Harry Potter - Chamber of Secrets", year: 2002, url: "https://vidsrc.xyz/embed/movie/tt0295297", icon: "⚡" },
         { title: "Harry Potter - Prisoner of Azkaban", year: 2004, url: "https://vidsrc.xyz/embed/movie/tt0304141", icon: "⚡" },
@@ -394,7 +413,7 @@ function loadMoviesData() {
         { title: "Harry Potter - Deathly Hallows 1", year: 2010, url: "https://vidsrc.xyz/embed/movie/tt0926084", icon: "⚡" },
         { title: "Harry Potter - Deathly Hallows 2", year: 2011, url: "https://vidsrc.xyz/embed/movie/tt1201607", icon: "⚡" },
         
-        // Marvel movies
+        // Marvel MCU
         { title: "Avengers: Endgame", year: 2019, url: "https://vidsrc.xyz/embed/movie/tt4154796", icon: "💥" },
         { title: "Avengers: Infinity War", year: 2018, url: "https://vidsrc.xyz/embed/movie/tt4154756", icon: "💥" },
         { title: "Spider-Man: No Way Home", year: 2021, url: "https://vidsrc.xyz/embed/movie/tt10872600", icon: "🕷️" },
@@ -403,8 +422,9 @@ function loadMoviesData() {
         { title: "Black Panther", year: 2018, url: "https://vidsrc.xyz/embed/movie/tt1825683", icon: "🐆" },
         { title: "Thor: Ragnarok", year: 2017, url: "https://vidsrc.xyz/embed/movie/tt3501632", icon: "⚡" },
         { title: "Guardians of the Galaxy", year: 2014, url: "https://vidsrc.xyz/embed/movie/tt2015381", icon: "🚀" },
+        { title: "Doctor Strange", year: 2016, url: "https://vidsrc.xyz/embed/movie/tt1211837", icon: "🔮" },
         
-        // Disney/Pixar
+        // Disney/Pixar Classics
         { title: "The Polar Express", year: 2004, url: "https://vidsrc.xyz/embed/movie/tt0338348", icon: "🚂" },
         { title: "Moana", year: 2016, url: "https://vidsrc.xyz/embed/movie/tt3521164", icon: "🌊" },
         { title: "Moana 2", year: 2024, url: "https://vidsrc.xyz/embed/movie/tt13622776", icon: "🌊" },
@@ -413,19 +433,38 @@ function loadMoviesData() {
         { title: "Inside Out", year: 2015, url: "https://vidsrc.xyz/embed/movie/tt2096673", icon: "🧠" },
         { title: "Frozen", year: 2013, url: "https://vidsrc.xyz/embed/movie/tt2294629", icon: "❄️" },
         { title: "Frozen 2", year: 2019, url: "https://vidsrc.xyz/embed/movie/tt4520988", icon: "❄️" },
+        { title: "Toy Story", year: 1995, url: "https://vidsrc.xyz/embed/movie/tt0114709", icon: "🤠" },
+        { title: "Toy Story 3", year: 2010, url: "https://vidsrc.xyz/embed/movie/tt0435761", icon: "🤠" },
+        { title: "The Lion King", year: 1994, url: "https://vidsrc.xyz/embed/movie/tt0110357", icon: "🦁" },
+        { title: "Coco", year: 2017, url: "https://vidsrc.xyz/embed/movie/tt2380307", icon: "🎸" },
         
-        // Family classics
+        // Family Favorites  
         { title: "Home Alone", year: 1990, url: "https://vidsrc.xyz/embed/movie/tt0099785", icon: "🏠" },
         { title: "Home Alone 2", year: 1992, url: "https://vidsrc.xyz/embed/movie/tt0104431", icon: "🏠" },
         { title: "Elf", year: 2003, url: "https://vidsrc.xyz/embed/movie/tt0319343", icon: "🎅" },
         { title: "The Grinch", year: 2018, url: "https://vidsrc.xyz/embed/movie/tt2709692", icon: "🎄" },
+        { title: "Shrek", year: 2001, url: "https://vidsrc.xyz/embed/movie/tt0126029", icon: "🧌" },
+        { title: "Shrek 2", year: 2004, url: "https://vidsrc.xyz/embed/movie/tt0298148", icon: "🧌" },
         
-        // Recent hits
+        // Action/Adventure
         { title: "Deadpool", year: 2016, url: "https://vidsrc.xyz/embed/movie/tt1431045", icon: "💀" },
         { title: "Deadpool 2", year: 2018, url: "https://vidsrc.xyz/embed/movie/tt5463162", icon: "💀" },
         { title: "The LEGO Movie", year: 2014, url: "https://vidsrc.xyz/embed/movie/tt1490017", icon: "🧱" },
         { title: "The Super Mario Bros Movie", year: 2023, url: "https://vidsrc.xyz/embed/movie/tt6718170", icon: "🍄" },
-        { title: "Five Nights at Freddy's", year: 2023, url: "https://vidsrc.xyz/embed/movie/tt4589218", icon: "🐻" }
+        { title: "Sonic the Hedgehog", year: 2020, url: "https://vidsrc.xyz/embed/movie/tt3794354", icon: "💨" },
+        { title: "Sonic 2", year: 2022, url: "https://vidsrc.xyz/embed/movie/tt12412888", icon: "💨" },
+        { title: "Five Nights at Freddy's", year: 2023, url: "https://vidsrc.xyz/embed/movie/tt4589218", icon: "🐻" },
+        { title: "Jurassic World", year: 2015, url: "https://vidsrc.xyz/embed/movie/tt0369610", icon: "🦖" },
+        { title: "Top Gun: Maverick", year: 2022, url: "https://vidsrc.xyz/embed/movie/tt1745960", icon: "✈️" },
+        
+        // Animated
+        { title: "Despicable Me", year: 2010, url: "https://vidsrc.xyz/embed/movie/tt1323594", icon: "🍌" },
+        { title: "Minions", year: 2015, url: "https://vidsrc.xyz/embed/movie/tt2293640", icon: "🍌" },
+        { title: "Kung Fu Panda", year: 2008, url: "https://vidsrc.xyz/embed/movie/tt0441773", icon: "🐼" },
+        { title: "How to Train Your Dragon", year: 2010, url: "https://vidsrc.xyz/embed/movie/tt0892769", icon: "🐉" },
+        { title: "Ratatouille", year: 2007, url: "https://vidsrc.xyz/embed/movie/tt0382932", icon: "🐀" },
+        { title: "WALL-E", year: 2008, url: "https://vidsrc.xyz/embed/movie/tt0910970", icon: "🤖" },
+        { title: "Up", year: 2009, url: "https://vidsrc.xyz/embed/movie/tt1049413", icon: "🎈" }
     ];
     
     renderMovies(allMovies);
@@ -461,22 +500,27 @@ function initMovieSearch() {
 }
 
 window.openMovie = function(url, title) {
-    // Open movie in new browser tab
+    // Open movie in new browser tab (VidSrc embeds work great!)
     openInBrowser(url);
 };
 
 // ==================== FALLBACK GAMES DATA ====================
 const FALLBACK_GAMES_DATA = [
-    {name: "1v1.lol", url: "https://drive.google.com/file/d/16SVHF4XRFjv5WCqlLHJZhF6nkBM7q4ex/view"},
-    {name: "2048", url: "https://drive.google.com/file/d/13xSrRMeCad0nyxRTPaaTQIMzVHk5Cd_s/view"},
-    {name: "Among Us", url: "https://drive.google.com/file/d/1ZCT6pr5pp3ci0-qKWjH1ccJ9N-bF5KWL/view"},
-    {name: "Basketball Stars", url: "https://drive.google.com/file/d/1STiVnrYpDeZPtHQxbB8a6wPpiwP3ZgEU/view"},
+    {name: "1v1.lol", url: "https://1v1.lol"},
+    {name: "2048", url: "https://play2048.co"},
+    {name: "Among Us", url: "https://www.crazygames.com/game/among-us"},
+    {name: "Basketball Stars", url: "https://www.crazygames.com/game/basketball-stars"},
     {name: "Minecraft Classic", url: "https://classic.minecraft.net"},
     {name: "Slope", url: "https://slope-game.github.io/roto"},
     {name: "Run 3", url: "https://player03.com/run/3/beta/"},
-    {name: "Subway Surfers", url: "https://poki.com/en/g/subway-surfers"}
+    {name: "Subway Surfers", url: "https://poki.com/en/g/subway-surfers"},
+    {name: "Tetris", url: "https://tetris.com/play-tetris"},
+    {name: "Snake", url: "https://www.google.com/fbx?fbx=snake_arcade"}
 ];
 
-console.log('✅ Polar Proxy Loaded Successfully!');
-console.log(`🎮 ${allGames.length || FALLBACK_GAMES_DATA.length} games available`);
-console.log(`🎬 ${allMovies.length} movies available`);
+// Show total counts
+setTimeout(() => {
+    console.log('✅ Polar Proxy Loaded Successfully!');
+    console.log(`🎮 ${allGames.length} games available`);
+    console.log(`🎬 ${allMovies.length} movies available`);
+}, 1000);
