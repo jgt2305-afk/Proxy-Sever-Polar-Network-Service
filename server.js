@@ -17,34 +17,29 @@ app.use((req, res, next) => {
     next();
 });
 
-// Log the public directory path for debugging
-const publicPath = path.join(__dirname, 'public');
-console.log('📁 Looking for public folder at:', publicPath);
+// Serve files from ROOT directory (no public folder)
+const staticPath = __dirname;
+console.log('📁 Serving files from:', staticPath);
 
-// Check if public folder exists
-if (fs.existsSync(publicPath)) {
-    console.log('✅ Public folder found!');
-    
-    // Check for index.html
-    const indexPath = path.join(publicPath, 'index.html');
-    if (fs.existsSync(indexPath)) {
-        console.log('✅ index.html found!');
-    } else {
-        console.log('❌ index.html NOT found at:', indexPath);
-    }
-    
-    // List all files in public folder
-    const files = fs.readdirSync(publicPath);
-    console.log('📄 Files in public folder:', files);
+// Check if index.html exists in root
+const indexPath = path.join(staticPath, 'index.html');
+if (fs.existsSync(indexPath)) {
+    console.log('✅ index.html found in root!');
 } else {
-    console.log('❌ Public folder NOT found at:', publicPath);
-    console.log('📂 Current directory:', __dirname);
-    console.log('📂 Files in current directory:', fs.readdirSync(__dirname));
+    console.log('❌ index.html NOT found at:', indexPath);
+}
+
+// List all files in root directory
+try {
+    const files = fs.readdirSync(staticPath);
+    console.log('📄 Files in root directory:', files.filter(f => !f.startsWith('.')).join(', '));
+} catch(e) {
+    console.log('Error listing files:', e.message);
 }
 
 // ==================== STATIC FILES ====================
-// Serve static files from public directory with proper headers
-app.use(express.static(publicPath, {
+// Serve static files from ROOT directory with proper headers
+app.use(express.static(staticPath, {
     setHeaders: (res, path) => {
         // Set proper MIME types
         if (path.endsWith('.js')) {
@@ -62,7 +57,7 @@ app.use(express.static(publicPath, {
 // ==================== ROUTES ====================
 // Serve main page
 app.get('/', (req, res) => {
-    const indexPath = path.join(publicPath, 'index.html');
+    const indexPath = path.join(staticPath, 'index.html');
     
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
@@ -87,10 +82,10 @@ app.get('/', (req, res) => {
             <body>
                 <h1>❌ Error: index.html not found</h1>
                 <p>Looking at: <code>${indexPath}</code></p>
-                <p>Public folder: <code>${publicPath}</code></p>
-                <p>Files in public: ${fs.existsSync(publicPath) ? fs.readdirSync(publicPath).join(', ') : 'Folder does not exist'}</p>
+                <p>Root directory: <code>${staticPath}</code></p>
+                <p>Files in root: ${fs.existsSync(staticPath) ? fs.readdirSync(staticPath).filter(f => !f.startsWith('.')).join(', ') : 'Cannot read directory'}</p>
                 <hr>
-                <p>Make sure the 'public' folder contains: index.html, styles.css, app.js</p>
+                <p>Make sure these files are in the ROOT directory: index.html, styles.css, app.js, games_data.json</p>
             </body>
             </html>
         `);
@@ -102,10 +97,9 @@ app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
-        publicPath: publicPath,
-        publicExists: fs.existsSync(publicPath),
-        indexExists: fs.existsSync(path.join(publicPath, 'index.html')),
-        files: fs.existsSync(publicPath) ? fs.readdirSync(publicPath) : []
+        rootPath: staticPath,
+        indexExists: fs.existsSync(path.join(staticPath, 'index.html')),
+        files: fs.existsSync(staticPath) ? fs.readdirSync(staticPath).filter(f => !f.startsWith('.')) : []
     });
 });
 
