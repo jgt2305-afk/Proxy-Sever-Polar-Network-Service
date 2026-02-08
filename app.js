@@ -1,5 +1,5 @@
-// ❄️ POLAR PROXY - Complete Rewrite with All Fixes
-// Features: Sidebar Nav, Top Tabs, Startpage Search, 1258+ Games, Working Incognito, Movie Proxy
+// ❄️ POLAR PROXY - COMPLETE FIX
+// Fixed: Removed ALL iframe restrictions, Google search (only one that works), working apps/movies
 
 // ==================== STATE MANAGEMENT ====================
 let currentPage = 'home';
@@ -48,23 +48,31 @@ function initTabCloaking() {
     const resetBtn = document.getElementById('resetCloakBtn');
     const presetBtns = document.querySelectorAll('.preset-btn');
     
+    if (!cloakBtn) return;
+    
     cloakBtn.addEventListener('click', () => modal.classList.add('active'));
-    closeBtn.addEventListener('click', () => modal.classList.remove('active'));
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('active');
-    });
+    if (closeBtn) closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.remove('active');
+        });
+    }
     
-    applyBtn.addEventListener('click', () => {
-        const title = document.getElementById('cloakTitle').value;
-        const favicon = document.getElementById('cloakFavicon').value;
-        applyCloak(title, favicon);
-        modal.classList.remove('active');
-    });
+    if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+            const title = document.getElementById('cloakTitle').value;
+            const favicon = document.getElementById('cloakFavicon').value;
+            applyCloak(title, favicon);
+            modal.classList.remove('active');
+        });
+    }
     
-    resetBtn.addEventListener('click', () => {
-        applyCloak('Polar Proxy', 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="75" font-size="75">🌐</text></svg>');
-        modal.classList.remove('active');
-    });
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            applyCloak('Polar Proxy', 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="75" font-size="75">🌐</text></svg>');
+            modal.classList.remove('active');
+        });
+    }
     
     presetBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -79,14 +87,16 @@ function initTabCloaking() {
 function applyCloak(title, faviconUrl) {
     document.title = title;
     const faviconEl = document.getElementById('favicon');
-    faviconEl.href = faviconUrl;
+    if (faviconEl) faviconEl.href = faviconUrl;
     console.log(`🎭 Tab cloaked as: ${title}`);
 }
 
-// ==================== SEARCH SYSTEM (ECOSIA) ====================
+// ==================== SEARCH SYSTEM (GOOGLE - ONLY ONE THAT WORKS IN IFRAMES) ====================
 function initSearch() {
     const urlInput = document.getElementById('urlInput');
     const goBtn = document.getElementById('goBtn');
+    
+    if (!urlInput || !goBtn) return;
     
     const handleGo = () => {
         const input = urlInput.value.trim();
@@ -101,8 +111,8 @@ function initSearch() {
             // Looks like a domain
             finalUrl = 'https://' + input;
         } else {
-            // Search on Ecosia (privacy-focused, plants trees, iframe-compatible)
-            finalUrl = `https://www.ecosia.org/search?q=${encodeURIComponent(input)}`;
+            // Google is the ONLY search that works reliably in iframes
+            finalUrl = `https://www.google.com/search?q=${encodeURIComponent(input)}&igu=1`;
         }
         
         openInBrowser(finalUrl);
@@ -120,6 +130,8 @@ function openInBrowser(url) {
     const tabsList = document.getElementById('tabsList');
     const browsersContainer = document.getElementById('browsersContainer');
     
+    if (!tabsList || !browsersContainer) return;
+    
     const tabId = ++tabCounter;
     const tab = createTab(tabId, url);
     const browser = createBrowser(tabId, url);
@@ -133,8 +145,10 @@ function openInBrowser(url) {
     // Switch to home page to show the browser
     document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelector('[data-page="home"]').classList.add('active');
-    document.getElementById('home').classList.add('active');
+    const homeBtn = document.querySelector('[data-page="home"]');
+    if (homeBtn) homeBtn.classList.add('active');
+    const homePage = document.getElementById('home');
+    if (homePage) homePage.classList.add('active');
 }
 
 function createTab(id, url) {
@@ -173,8 +187,9 @@ function createBrowser(id, url) {
     browser.className = 'browser-view';
     browser.dataset.browserId = id;
     
-    // Use proxy if available, otherwise direct embed
-    browser.innerHTML = `<iframe src="${url}" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>`;
+    // NO SANDBOX! This was breaking everything.
+    // Full permissions for maximum compatibility
+    browser.innerHTML = `<iframe src="${url}" allow="accelerometer; autoplay; camera; clipboard-read; clipboard-write; encrypted-media; fullscreen; geolocation; gyroscope; microphone; payment; usb" allowfullscreen></iframe>`;
     
     return browser;
 }
@@ -202,9 +217,12 @@ window.closeTab = function(id) {
 };
 
 // New Tab Button
-document.getElementById('newTabBtn')?.addEventListener('click', () => {
-    openInBrowser('https://www.ecosia.org');
-});
+const newTabBtn = document.getElementById('newTabBtn');
+if (newTabBtn) {
+    newTabBtn.addEventListener('click', () => {
+        openInBrowser('https://www.google.com');
+    });
+}
 
 // ==================== APPS SYSTEM ====================
 function initApps() {
@@ -212,7 +230,9 @@ function initApps() {
     appCards.forEach(card => {
         card.addEventListener('click', () => {
             const url = card.dataset.url;
-            openInBrowser(url);
+            if (url) {
+                openInBrowser(url);
+            }
         });
     });
 }
@@ -223,18 +243,16 @@ async function loadGamesData() {
     if (loadingIndicator) loadingIndicator.classList.add('active');
     
     try {
-        // Load games from JSON file
         const response = await fetch('games_data.json');
         allGames = await response.json();
         console.log(`🎮 Loaded ${allGames.length} games!`);
     } catch (error) {
         console.log('Using fallback games data');
-        // Fallback to inline data if JSON not found
         allGames = FALLBACK_GAMES_DATA;
     }
     
     filteredGames = allGames;
-    renderGames(filteredGames.slice(0, 50)); // Show first 50 initially
+    renderGames(filteredGames.slice(0, 50));
     
     if (loadingIndicator) loadingIndicator.classList.remove('active');
     initGameSearch();
@@ -284,7 +302,6 @@ function initGameCategories() {
             if (category === 'all') {
                 filteredGames = allGames;
             } else {
-                // Simple categorization - can be enhanced
                 filteredGames = allGames.filter(g => {
                     const name = g.name.toLowerCase();
                     switch(category) {
@@ -339,10 +356,11 @@ window.openGame = function(url, name) {
     const gameFrame = document.getElementById('gameFrame');
     const gameTitle = document.getElementById('gameTitle');
     
+    if (!modal || !gameFrame || !gameTitle) return;
+    
     gameTitle.textContent = name;
     currentGameUrl = url;
     
-    // Convert Google Drive view link to embed/preview link
     let embedUrl = url;
     if (url.includes('drive.google.com/file/d/')) {
         const fileId = url.match(/\/d\/([^/]+)\//)?.[1];
@@ -355,36 +373,44 @@ window.openGame = function(url, name) {
     modal.classList.add('active');
 };
 
-document.getElementById('closeGameBtn')?.addEventListener('click', () => {
-    const modal = document.getElementById('gameModal');
-    modal.classList.remove('active');
-    document.getElementById('gameFrame').src = '';
-    currentGameUrl = '';
-});
+const closeGameBtn = document.getElementById('closeGameBtn');
+if (closeGameBtn) {
+    closeGameBtn.addEventListener('click', () => {
+        const modal = document.getElementById('gameModal');
+        const gameFrame = document.getElementById('gameFrame');
+        if (modal) modal.classList.remove('active');
+        if (gameFrame) gameFrame.src = '';
+        currentGameUrl = '';
+    });
+}
 
-document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
-    const frame = document.getElementById('gameFrame');
-    if (frame.requestFullscreen) {
-        frame.requestFullscreen();
-    } else if (frame.webkitRequestFullscreen) {
-        frame.webkitRequestFullscreen();
-    }
-});
-
-document.getElementById('downloadGameBtn')?.addEventListener('click', () => {
-    if (currentGameUrl) {
-        // Open the Google Drive direct download
-        const fileId = currentGameUrl.match(/\/d\/([^/]+)\//)?.[1];
-        if (fileId) {
-            window.open(`https://drive.google.com/uc?export=download&id=${fileId}`, '_blank');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', () => {
+        const frame = document.getElementById('gameFrame');
+        if (frame && frame.requestFullscreen) {
+            frame.requestFullscreen();
+        } else if (frame && frame.webkitRequestFullscreen) {
+            frame.webkitRequestFullscreen();
         }
-    }
-});
+    });
+}
+
+const downloadGameBtn = document.getElementById('downloadGameBtn');
+if (downloadGameBtn) {
+    downloadGameBtn.addEventListener('click', () => {
+        if (currentGameUrl) {
+            const fileId = currentGameUrl.match(/\/d\/([^/]+)\//)?.[1];
+            if (fileId) {
+                window.open(`https://drive.google.com/uc?export=download&id=${fileId}`, '_blank');
+            }
+        }
+    });
+}
 
 // ==================== MOVIES SYSTEM ====================
 function loadMoviesData() {
     allMovies = [
-        // Major franchises
         { title: "Harry Potter - Sorcerer's Stone", year: 2001, url: "https://vidsrc.xyz/embed/movie/tt0241527", icon: "⚡" },
         { title: "Harry Potter - Chamber of Secrets", year: 2002, url: "https://vidsrc.xyz/embed/movie/tt0295297", icon: "⚡" },
         { title: "Harry Potter - Prisoner of Azkaban", year: 2004, url: "https://vidsrc.xyz/embed/movie/tt0304141", icon: "⚡" },
@@ -393,8 +419,6 @@ function loadMoviesData() {
         { title: "Harry Potter - Half-Blood Prince", year: 2009, url: "https://vidsrc.xyz/embed/movie/tt0417741", icon: "⚡" },
         { title: "Harry Potter - Deathly Hallows 1", year: 2010, url: "https://vidsrc.xyz/embed/movie/tt0926084", icon: "⚡" },
         { title: "Harry Potter - Deathly Hallows 2", year: 2011, url: "https://vidsrc.xyz/embed/movie/tt1201607", icon: "⚡" },
-        
-        // Marvel movies
         { title: "Avengers: Endgame", year: 2019, url: "https://vidsrc.xyz/embed/movie/tt4154796", icon: "💥" },
         { title: "Avengers: Infinity War", year: 2018, url: "https://vidsrc.xyz/embed/movie/tt4154756", icon: "💥" },
         { title: "Spider-Man: No Way Home", year: 2021, url: "https://vidsrc.xyz/embed/movie/tt10872600", icon: "🕷️" },
@@ -403,8 +427,6 @@ function loadMoviesData() {
         { title: "Black Panther", year: 2018, url: "https://vidsrc.xyz/embed/movie/tt1825683", icon: "🐆" },
         { title: "Thor: Ragnarok", year: 2017, url: "https://vidsrc.xyz/embed/movie/tt3501632", icon: "⚡" },
         { title: "Guardians of the Galaxy", year: 2014, url: "https://vidsrc.xyz/embed/movie/tt2015381", icon: "🚀" },
-        
-        // Disney/Pixar
         { title: "The Polar Express", year: 2004, url: "https://vidsrc.xyz/embed/movie/tt0338348", icon: "🚂" },
         { title: "Moana", year: 2016, url: "https://vidsrc.xyz/embed/movie/tt3521164", icon: "🌊" },
         { title: "Moana 2", year: 2024, url: "https://vidsrc.xyz/embed/movie/tt13622776", icon: "🌊" },
@@ -413,14 +435,10 @@ function loadMoviesData() {
         { title: "Inside Out", year: 2015, url: "https://vidsrc.xyz/embed/movie/tt2096673", icon: "🧠" },
         { title: "Frozen", year: 2013, url: "https://vidsrc.xyz/embed/movie/tt2294629", icon: "❄️" },
         { title: "Frozen 2", year: 2019, url: "https://vidsrc.xyz/embed/movie/tt4520988", icon: "❄️" },
-        
-        // Family classics
         { title: "Home Alone", year: 1990, url: "https://vidsrc.xyz/embed/movie/tt0099785", icon: "🏠" },
         { title: "Home Alone 2", year: 1992, url: "https://vidsrc.xyz/embed/movie/tt0104431", icon: "🏠" },
         { title: "Elf", year: 2003, url: "https://vidsrc.xyz/embed/movie/tt0319343", icon: "🎅" },
         { title: "The Grinch", year: 2018, url: "https://vidsrc.xyz/embed/movie/tt2709692", icon: "🎄" },
-        
-        // Recent hits
         { title: "Deadpool", year: 2016, url: "https://vidsrc.xyz/embed/movie/tt1431045", icon: "💀" },
         { title: "Deadpool 2", year: 2018, url: "https://vidsrc.xyz/embed/movie/tt5463162", icon: "💀" },
         { title: "The LEGO Movie", year: 2014, url: "https://vidsrc.xyz/embed/movie/tt1490017", icon: "🧱" },
@@ -461,7 +479,6 @@ function initMovieSearch() {
 }
 
 window.openMovie = function(url, title) {
-    // Open movie in new browser tab
     openInBrowser(url);
 };
 
@@ -477,6 +494,6 @@ const FALLBACK_GAMES_DATA = [
     {name: "Subway Surfers", url: "https://poki.com/en/g/subway-surfers"}
 ];
 
-console.log('✅ Polar Proxy Loaded Successfully!');
-console.log(`🎮 ${allGames.length || FALLBACK_GAMES_DATA.length} games available`);
-console.log(`🎬 ${allMovies.length} movies available`);
+console.log('✅ Polar Proxy Loaded - ALL RESTRICTIONS REMOVED');
+console.log(`🎮 ${allGames.length || FALLBACK_GAMES_DATA.length} games | 🎬 ${allMovies.length} movies`);
+console.log('🔓 No sandbox, no iframe restrictions - everything should work now!');
