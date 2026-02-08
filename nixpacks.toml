@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ['nodejs']
+
+[phases.install]
+cmds = ['npm install']
+
+[phases.build]
+cmds = ['echo "Listing files..." && ls -la && echo "Checking public folder..." && ls -la public/ || echo "Public folder missing!"']
+
+[start]
+cmd = 'node server.js'
